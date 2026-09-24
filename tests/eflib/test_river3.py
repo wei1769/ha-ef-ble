@@ -234,3 +234,15 @@ async def test_river3_updates_new_fields(device, packet_sequence):
     assert device.get_value(Device.x_boost) is False
     assert device.get_value(Device.beeper) is True
     assert device.get_value(Device.power_off_memory) is True
+
+
+async def test_river3_updates_state_and_standby_fields(device, packet_sequence):
+    for hex_packet in packet_sequence:
+        packet = await device.packet_parse(bytes.fromhex(hex_packet))
+        await device.data_parse(packet)
+
+    assert device.get_value(Device.charge_discharge_state) == 0
+    assert device.get_value(Device.bms_run_state) == 1
+    assert device.get_value(Device.sleep_state) == 0
+    assert device.get_value(Device.unit_standby_time) == 1440
+    assert device.get_value(Device.ac_standby_time) == 0

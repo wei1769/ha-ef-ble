@@ -1035,6 +1035,12 @@
       },
       "battery_health": {
         "name": "Battery Health"
+      },
+      "charge_discharge_state": {
+        "name": "Charge/Discharge State"
+      },
+      "bms_run_state": {
+        "name": "BMS Run State"
       }
     },
     "select": {
@@ -1184,6 +1190,12 @@
       },
       "dc_charging_max_amps_2": {
         "name": "DC (2) Charging Max Amps"
+      },
+      "unit_standby_time": {
+        "name": "Unit Standby Timeout"
+      },
+      "ac_standby_time": {
+        "name": "AC Standby Timeout"
       }
     },
     "climate": {

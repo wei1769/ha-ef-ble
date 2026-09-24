@@ -20,3 +20,7 @@ class Current(Unit):
 
 class Voltage(Unit):
     VOLT = "V"
+
+
+class Time(Unit):
+    MINUTES = "min"
