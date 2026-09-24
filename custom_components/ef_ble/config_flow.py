@@ -14,6 +14,7 @@ import voluptuous as vol
 from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
     async_discovered_service_info,
+    async_scanner_count,
 )
 from homeassistant.config_entries import (
     CONN_CLASS_LOCAL_PUSH,
@@ -237,7 +238,8 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
 
         current_addresses = self._async_current_ids()
 
-        for discovery_info in async_discovered_service_info(self.hass):
+        discovered = async_discovered_service_info(self.hass, connectable=True)
+        for discovery_info in discovered:
             address = discovery_info.address
             self._set_name_from_discovery(discovery_info)
             if address in current_addresses or address in self._discovered_devices:
@@ -256,7 +258,7 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._device_by_display_name[f"{name} ({address})"] = device
 
         if not self._discovered_devices:
-            return self.async_abort(reason="no_devices_found")
+            return self._show_no_devices(discovered, current_addresses)
 
         device_by_name_sorted = dict(
             sorted(
@@ -276,6 +278,43 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
                 .required(CONF_ADDRESS, vol.In(device_by_name_sorted.keys()))
                 .build()
             ),
+        )
+
+    async def async_step_no_devices(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Retry discovery from the detailed empty-result screen."""
+        if user_input is not None:
+            return await self.async_step_user()
+
+        discovered = async_discovered_service_info(self.hass, connectable=True)
+        return self._show_no_devices(discovered, self._async_current_ids())
+
+    def _show_no_devices(
+        self,
+        discovered: Iterable[BluetoothServiceInfoBleak],
+        current_addresses: set[str],
+    ) -> ConfigFlowResult:
+        discovered = list(discovered)
+        candidates = [
+            _discovery_detail(info, current_addresses)
+            for info in discovered
+            if _is_ecoflow_candidate(info)
+        ]
+        nearby = [_discovery_summary(info) for info in discovered[:10]]
+
+        return self.async_show_form(
+            step_id="no_devices",
+            last_step=False,
+            description_placeholders={
+                "scanner_count": str(async_scanner_count(self.hass, connectable=True)),
+                "device_count": str(len(discovered)),
+                "configured_count": str(len(current_addresses)),
+                "candidates": "\n".join(candidates)
+                or "- No EcoFlow-like advertisements found",
+                "nearby": "\n".join(nearby) or "- No connectable advertisements found",
+            },
+            data_schema=vol.Schema({}),
         )
 
     def _set_name_from_discovery(
@@ -1160,6 +1199,55 @@ def schema_builder():
 
 def _find_enabled_batteries(device: eflib.DeviceBase, slots: Iterable[int]):
     return [str(i) for i in slots if getattr(device, f"battery_{i}_enabled", False)]
+
+
+def _is_ecoflow_candidate(info: BluetoothServiceInfoBleak) -> bool:
+    advertisement = info.advertisement
+    local_name = advertisement.local_name or info.name or ""
+    return (
+        eflib.DeviceBase.MANUFACTURER_KEY in advertisement.manufacturer_data
+        or local_name.upper().startswith("EF-")
+        or "ecoflow" in local_name.lower()
+    )
+
+
+def _discovery_detail(
+    info: BluetoothServiceInfoBleak, current_addresses: set[str]
+) -> str:
+    advertisement = info.advertisement
+    raw = advertisement.manufacturer_data.get(eflib.DeviceBase.MANUFACTURER_KEY)
+    if info.address in current_addresses:
+        status = "already configured"
+    elif raw is None:
+        status = "EcoFlow manufacturer data 0xB5B5 is missing"
+    elif len(raw) < 17:
+        status = f"manufacturer data is too short ({len(raw)} bytes; need 17)"
+    else:
+        prefix = raw[1:5].decode("ASCII", errors="replace")
+        device_class = eflib.device_class_from_sn(raw[1:17])
+        model = (
+            (device_class.__doc__ or "supported device").strip()
+            if device_class
+            else "unsupported model"
+        )
+        status = f"serial prefix {prefix}, parser: {model}"
+
+    return f"- {_discovery_identity(info)}: {status}"
+
+
+def _discovery_summary(info: BluetoothServiceInfoBleak) -> str:
+    manufacturer_ids = ", ".join(
+        f"0x{manufacturer_id:04X}"
+        for manufacturer_id in info.advertisement.manufacturer_data
+    )
+    return f"- {_discovery_identity(info)}; manufacturers: {manufacturer_ids or 'none'}"
+
+
+def _discovery_identity(info: BluetoothServiceInfoBleak) -> str:
+    advertisement = info.advertisement
+    name = advertisement.local_name or info.name or "unnamed"
+    source = getattr(info, "source", None) or "unknown source"
+    return f"{name} [{info.address}] via {source}"
 
 
 class ProgressPhase(enum.StrEnum):

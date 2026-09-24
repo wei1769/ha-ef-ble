@@ -95,6 +95,11 @@
           "address": "BLE 设备"
         }
       },
+      "no_devices": {
+        "title": "未找到可选择的 EcoFlow 设备",
+        "description": "Home Assistant 蓝牙诊断：\n\n- 可连接扫描器：**{scanner_count}**\n- 已缓存的可连接广播：**{device_count}**\n- 现有 EcoFlow BLE 条目：**{configured_count}**\n\nEcoFlow 候选设备：\n{candidates}\n\n附近前 10 个可连接广播：\n{nearby}\n\n如果扫描器或广播数量为零，请检查 Home Assistant 蓝牙集成或代理。如果设备显示为已配置，请使用现有条目。否则请关闭 EcoFlow App，保持设备唤醒，等待新的广播，然后选择**提交**重试。",
+        "data": {}
+      },
       "device_confirm": {
         "title": "{name} 配置选项",
         "data": {

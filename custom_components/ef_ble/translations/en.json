@@ -95,6 +95,11 @@
           "address": "BLE Device"
         }
       },
+      "no_devices": {
+        "title": "No selectable EcoFlow devices found",
+        "description": "Home Assistant Bluetooth diagnostics:\n\n- Connectable scanners: **{scanner_count}**\n- Connectable advertisements cached: **{device_count}**\n- Existing EcoFlow BLE entries: **{configured_count}**\n\nEcoFlow candidates:\n{candidates}\n\nFirst 10 nearby connectable advertisements:\n{nearby}\n\nIf scanners or advertisements are zero, check the Home Assistant Bluetooth integration or proxy. If the device is listed as already configured, use its existing entry. Otherwise close the EcoFlow app, keep the device awake, wait for another advertisement, and select **Submit** to retry.",
+        "data": {}
+      },
       "device_confirm": {
         "title": "{name} config options",
         "data": {
