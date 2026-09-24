@@ -5,7 +5,7 @@ from collections import defaultdict
 from collections.abc import Callable, Coroutine, Mapping
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Any, ClassVar, overload
+from typing import Any, ClassVar, Literal, overload
 
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
@@ -31,7 +31,6 @@ from .logging_util import (
     caller_chain,
 )
 from .packet import Packet
-from .props.raw_data_props import Literal
 from .props.updatable_props import Field, UpdatableProps
 
 # Seconds to wait after authentication before falling back to a field's
@@ -343,6 +342,9 @@ class DeviceBase(abc.ABC):
         self,
         user_id: str | None = None,
         max_attempts: int | None = None,
+        *,
+        accountless: bool = False,
+        accountless_key_case: Literal["lower", "upper"] = "lower",
     ):
         if self._conn is None:
             self._conn = (
@@ -355,6 +357,8 @@ class DeviceBase(abc.ABC):
                     packet_version=self.packet_version,
                     encrypt_type=self.scan_record.encrypt_type,
                     auth_header_dst=self.auth_header_dst,
+                    accountless=accountless,
+                    accountless_key_case=accountless_key_case,
                 )
                 .with_logging_options(self._logger.options)
                 .with_disabled_reconnect(self._reconnect_disabled)
@@ -375,6 +379,9 @@ class DeviceBase(abc.ABC):
 
         elif self._conn._user_id != user_id:
             self._conn._user_id = user_id
+
+        self._conn._accountless = accountless
+        self._conn._accountless_key_case = accountless_key_case
 
         await self._conn.connect(max_attempts=max_attempts)
 

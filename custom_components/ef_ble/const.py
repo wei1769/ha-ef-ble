@@ -4,6 +4,8 @@ DOMAIN = "ef_ble"
 MANUFACTURER = "EcoFlow"
 
 CONF_USER_ID = "user_id"
+CONF_ACCOUNTLESS = "accountless"
+CONF_ACCOUNTLESS_KEY_CASE = "accountless_key_case"
 CONF_UPDATE_PERIOD = "update_period"
 CONF_CONNECTION_TIMEOUT = "connection_timeout"
 CONF_PACKET_VERSION = "packet_version"

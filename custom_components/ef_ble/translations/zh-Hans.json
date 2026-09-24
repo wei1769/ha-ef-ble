@@ -12,6 +12,8 @@
       "unknown": "发生意外错误，请查看日志了解详情",
       "email_empty": "邮箱不能为空",
       "password_empty": "密码不能为空",
+      "accountless_with_credentials": "启用无账户模式时，请将 EcoFlow 登录信息留空",
+      "accountless_with_user_id": "启用无账户模式时，请将 EcoFlow 用户 ID 留空",
       "device_auth_failed": "设备认证失败 - {reason_failed}",
       "auth_failed_need_refresh_token": "认证失败 - 令牌需要刷新，请重试",
       "auth_failed_device_internal_error": "认证失败 - 设备内部错误",
@@ -31,11 +33,15 @@
       "bluetooth_confirm": {
         "title": "发现的设备配置",
         "data": {
+          "accountless": "使用无账户本地认证",
+          "accountless_key_case": "无账户密钥大小写",
           "user_id": "EcoFlow 用户 ID",
           "address": "BLE 设备",
           "update_period": "更新周期"
         },
         "data_description": {
+          "accountless": "选择无需 EcoFlow 账户的本地认证。对于未绑定的设备，此模式会写入本地密钥并更改认证状态。它不会解绑、恢复出厂设置或覆盖已绑定的设备。",
+          "accountless_key_case": "发送到设备的 32 字符 MD5 密钥的大小写。RIVER 3 Plus 已验证小写格式；仅当其他型号要求时才选择大写。",
           "update_period": "处理下一次设备更新前等待的秒数。值为 0 表示立即处理所有更新（会导致大量数据库写入）。"
         },
         "sections": {
@@ -94,11 +100,15 @@
       "device_confirm": {
         "title": "{name} 配置选项",
         "data": {
+          "accountless": "使用无账户本地认证",
+          "accountless_key_case": "无账户密钥大小写",
           "user_id": "EcoFlow 用户 ID",
           "address": "BLE 设备",
           "update_period": "更新周期"
         },
         "data_description": {
+          "accountless": "选择无需 EcoFlow 账户的本地认证。对于未绑定的设备，此模式会写入本地密钥并更改认证状态。它不会解绑、恢复出厂设置或覆盖已绑定的设备。",
+          "accountless_key_case": "发送到设备的 32 字符 MD5 密钥的大小写。RIVER 3 Plus 已验证小写格式；仅当其他型号要求时才选择大写。",
           "update_period": "处理下一次设备更新前等待的秒数。值为 0 表示立即处理所有更新（会导致大量数据库写入）。"
         },
         "sections": {
@@ -151,11 +161,15 @@
         "title": "{name} 配置选项",
         "description": "此设备目前不受支持，但可以连接以收集原始数据。更多信息请参阅[此 wiki]({wiki_link})页面。",
         "data": {
+          "accountless": "使用无账户本地认证",
+          "accountless_key_case": "无账户密钥大小写",
           "user_id": "EcoFlow 用户 ID",
           "update_period": "更新周期",
           "packet_version": "数据包版本"
         },
         "data_description": {
+          "accountless": "选择无需 EcoFlow 账户的本地认证。对于未绑定的设备，此模式会写入本地密钥并更改认证状态。它不会解绑、恢复出厂设置或覆盖已绑定的设备。",
+          "accountless_key_case": "发送到设备的 32 字符 MD5 密钥的大小写。RIVER 3 Plus 已验证小写格式；仅当其他型号要求时才选择大写。",
           "update_period": "处理下一次设备更新前等待的秒数。默认值为 0 表示立即处理所有更新（可能会导致大量数据库写入）。",
           "packet_version": "要使用的数据包版本 - 取决于设备的代际和固件。如果连接/认证失败，请尝试不同的版本。\n请注意，某些设备可能使用此集成尚不支持的数据包版本。"
         },
@@ -207,6 +221,8 @@
       },
       "reconfigure": {
         "data": {
+          "accountless": "使用无账户本地认证",
+          "accountless_key_case": "无账户密钥大小写",
           "user_id": "EcoFlow 用户 ID",
           "extra_battery": "已启用的额外电池"
         }
@@ -1249,6 +1265,12 @@
     "preferred_proxy": {
       "options": {
         "any": "任何可用的代理"
+      }
+    },
+    "accountless_key_case": {
+      "options": {
+        "lower": "小写",
+        "upper": "大写"
       }
     }
   }

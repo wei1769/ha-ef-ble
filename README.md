@@ -735,9 +735,8 @@ Click on any device below to see available sensors, switches, and controls:
 ### Prerequisites
 
 - Home Assistant with Bluetooth support
-- Your device must be **bound to your account** through the EcoFlow app before setup
-- Your **User ID** from the EcoFlow app (can be retrieved via the config flow login form
-  during setup)
+- Either an EcoFlow **User ID**, or a device and firmware supported by the opt-in
+  **accountless local authentication** mode
 - [HACS](https://hacs.xyz/) installed (recommended method)
 
 ### Method 1: HACS Installation (Recommended)
@@ -773,6 +772,18 @@ This integration is available in the default HACS repository.
 
 After installation, the integration will automatically discover supported EcoFlow devices
 via Bluetooth LE.
+
+To configure without an EcoFlow account, enable **Use accountless local authentication**
+and leave both the User ID and login fields empty. The integration derives the local key
+from the serial in the BLE advertisement and does not call EcoFlow cloud APIs. If the
+device reports that first bind is required, setup writes the key once, reconnects, and
+only succeeds after check-auth confirms it.
+
+> [!WARNING]
+> Accountless first bind changes the device's authentication state. It is opt-in and will
+> not unbind, factory-reset, or overwrite a device that reports it is already bound. The
+> lowercase key format is verified on RIVER 3 Plus; an uppercase option is available for
+> devices that require the upstream key representation.
 
 > [!TIP]
 > For detailed configuration help, FAQ, and troubleshooting common issues (like BLE

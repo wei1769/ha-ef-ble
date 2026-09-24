@@ -37,6 +37,8 @@ from homeassistant.helpers.storage import Store
 
 from . import eflib
 from .const import (
+    CONF_ACCOUNTLESS,
+    CONF_ACCOUNTLESS_KEY_CASE,
     CONF_ADVANCED_CONNECTION_OPTIONS,
     CONF_BLUEZ_START_NOTIFY,
     CONF_COLLECT_PACKETS,
@@ -144,6 +146,8 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
         self._local_names: dict[str, str] = {}
 
         self._user_id: str = ""
+        self._accountless: bool = False
+        self._accountless_key_case: str = "lower"
         self._email: str = ""
         self._user_id_validated: bool = False
         self._log_options = LogOptions.no_options()
@@ -207,6 +211,7 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
             data_schema=(
                 schema_builder()
+                .accountless(self._accountless, self._accountless_key_case)
                 .user_id(self._user_id)
                 .login(self._collapsed)
                 .required(CONF_ADDRESS, vol.In([full_name]))
@@ -307,6 +312,7 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders=placeholders,
             data_schema=(
                 schema_builder()
+                .accountless(self._accountless, self._accountless_key_case)
                 .user_id(self._user_id)
                 .login(self._collapsed)
                 .update_period()
@@ -340,6 +346,7 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders=placeholders,
             data_schema=(
                 schema_builder()
+                .accountless(self._accountless, self._accountless_key_case)
                 .user_id(self._user_id)
                 .optional(
                     CONF_PACKET_VERSION,
@@ -369,14 +376,23 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
 
         errors = {}
         if user_input is not None:
+            accountless = user_input.get(CONF_ACCOUNTLESS, False)
+            user_id = user_input.get(CONF_USER_ID, "").strip()
+            if not accountless and not user_id:
+                errors[CONF_USER_ID] = "User ID cannot be empty"
+            elif not accountless and (error := self._check_user_id(user_id)):
+                errors.update(error)
+
             try:
-                address = reconfigure_entry.data.get(CONF_ADDRESS)
-                await self.async_set_unique_id(address, raise_on_progress=False)
-                self._abort_if_unique_id_mismatch()
-                return self.async_update_reload_and_abort(
-                    reconfigure_entry,
-                    data_updates=user_input,
-                )
+                if not errors:
+                    user_input[CONF_USER_ID] = "" if accountless else user_id
+                    address = reconfigure_entry.data.get(CONF_ADDRESS)
+                    await self.async_set_unique_id(address, raise_on_progress=False)
+                    self._abort_if_unique_id_mismatch()
+                    return self.async_update_reload_and_abort(
+                        reconfigure_entry,
+                        data_updates=user_input,
+                    )
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -385,6 +401,10 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reconfigure",
             data_schema=(
                 schema_builder()
+                .accountless(
+                    reconfigure_entry.data.get(CONF_ACCOUNTLESS, False),
+                    reconfigure_entry.data.get(CONF_ACCOUNTLESS_KEY_CASE, "lower"),
+                )
                 .user_id(reconfigure_entry.data.get(CONF_USER_ID, ""))
                 .extra_battery(reconfigure_entry.data.get(CONF_EXTRA_BATTERY), device)
                 .build()
@@ -456,25 +476,34 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
         password = user_input.get("login", {}).get(CONF_PASSWORD, "")
         region = user_input.get("login", {}).get(CONF_REGION, "")
         user_id = user_input.get(CONF_USER_ID, "").strip()
+        self._accountless = user_input.get(CONF_ACCOUNTLESS, False)
+        self._accountless_key_case = user_input.get(CONF_ACCOUNTLESS_KEY_CASE, "lower")
         advanced = user_input.get(CONF_ADVANCED_CONNECTION_OPTIONS, {})
         timeout = advanced.get(CONF_CONNECTION_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT)
         packet_version = PacketVersion.from_str(user_input.get(CONF_PACKET_VERSION))
 
         self._collapsed = False
 
-        if not self._email and not password and not user_id:
+        if self._accountless:
+            if self._email or password:
+                return {"login": "accountless_with_credentials"}
+            if user_id:
+                return {CONF_USER_ID: "accountless_with_user_id"}
+            self._user_id = ""
+        elif not self._email and not password and not user_id:
             return {CONF_USER_ID: "User ID cannot be empty"}
 
-        if self._email or password:
+        if not self._accountless and (self._email or password):
             if not self._email:
                 return {"login": "email_empty"}
             if not password:
                 return {"login": "password_empty"}
             return await self._ecoflow_login(self._email, password, region)
 
-        self._user_id = user_id
+        if not self._accountless:
+            self._user_id = user_id
 
-        if error := self._check_user_id(user_id):
+        if not self._accountless and (error := self._check_user_id(user_id)):
             return error
 
         (
@@ -669,7 +698,11 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _connect_and_check(self, device: eflib.DeviceBase) -> dict[str, Any]:
         timeout = self._connect_timeout
-        await device.connect(self._user_id)
+        await device.connect(
+            self._user_id,
+            accountless=self._accountless,
+            accountless_key_case=self._accountless_key_case,
+        )
         exc = None
         try:
             conn_state, exc = await asyncio.wait_for(
@@ -697,7 +730,8 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
                 error = "unknown"
             case ConnectionState.AUTHENTICATED:
                 self._user_id_validated = True
-                await self._store.async_save(data={"user_id": self._user_id})
+                if self._user_id:
+                    await self._store.async_save(data={"user_id": self._user_id})
             case _:
                 error = (
                     "error_try_refresh"
@@ -877,6 +911,22 @@ class _SchemaBuilder:
         )
 
         return self.update({marker(CONF_USER_ID, default=user_id): str})
+
+    def accountless(self, enabled: bool = False, key_case: str = "lower"):
+        return self.update(
+            {
+                vol.Optional(CONF_ACCOUNTLESS, default=enabled): bool,
+                vol.Optional(
+                    CONF_ACCOUNTLESS_KEY_CASE, default=key_case
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=["lower", "upper"],
+                        mode=SelectSelectorMode.DROPDOWN,
+                        translation_key=CONF_ACCOUNTLESS_KEY_CASE,
+                    )
+                ),
+            }
+        )
 
     def login(self, collapsed: bool = True):
         return self.update(
@@ -1173,6 +1223,7 @@ class ProgressPhase(enum.StrEnum):
             ConnectionState.REQUESTING_AUTH_STATUS,
             ConnectionState.AUTH_STATUS_RECEIVED,
             ConnectionState.AUTHENTICATING,
+            ConnectionState.ACCOUNTLESS_BINDING,
         ),
     )
     FINALIZING = "finalizing", ()

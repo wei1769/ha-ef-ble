@@ -73,6 +73,12 @@ _BT_PROTOCOL_UUIDS = {
 }
 
 
+def derive_auth_key(user_id: str, serial: str, *, uppercase: bool) -> bytes:
+    """Derive the 32-character ASCII key used by check-auth and first bind."""
+    key = hashlib.md5((user_id + serial).encode("ASCII")).hexdigest()
+    return (key.upper() if uppercase else key.lower()).encode("ASCII")
+
+
 def _state_in(states: "Collection[ConnectionState | str]"):
     return cached_property(lambda self: self in states)
 
@@ -96,6 +102,7 @@ class ConnectionState(StrEnum):
     REQUESTING_AUTH_STATUS = auto()
     AUTH_STATUS_RECEIVED = auto()
     AUTHENTICATING = auto()
+    ACCOUNTLESS_BINDING = auto()
     AUTHENTICATED = auto()
 
     ERROR_TIMEOUT = auto()
@@ -137,6 +144,7 @@ class ConnectionState(StrEnum):
             REQUESTING_AUTH_STATUS,
             AUTH_STATUS_RECEIVED,
             AUTHENTICATING,
+            ACCOUNTLESS_BINDING,
             AUTHENTICATED,
         ]
     )
@@ -151,6 +159,7 @@ class ConnectionState(StrEnum):
             REQUESTING_AUTH_STATUS,
             AUTH_STATUS_RECEIVED,
             AUTHENTICATING,
+            ACCOUNTLESS_BINDING,
         ]
     )
 
@@ -180,6 +189,7 @@ class ConnectionState(StrEnum):
             ConnectionState.REQUESTING_AUTH_STATUS,
             ConnectionState.AUTH_STATUS_RECEIVED,
             ConnectionState.AUTHENTICATING,
+            ConnectionState.ACCOUNTLESS_BINDING,
             ConnectionState.AUTHENTICATED,
         ]
 
@@ -233,14 +243,21 @@ class Connection:
         user_id: str,
         data_parse: Callable[[Packet], Awaitable[bool]],
         packet_parse: Callable[[bytes], Awaitable[Packet]],
+        *,
         packet_version: int = 0x03,
         encrypt_type: int = 7,
         auth_header_dst: int = 0x35,
+        accountless: bool = False,
+        accountless_key_case: Literal["lower", "upper"] = "lower",
     ) -> None:
         self._ble_dev = ble_dev
         self._address = ble_dev.address
         self._dev_sn = dev_sn
         self._user_id = user_id
+        self._accountless = accountless
+        self._accountless_key_case = accountless_key_case
+        self._accountless_bind_attempted = False
+        self._accountless_reconnect_pending = False
 
         self._data_parse = data_parse
         self._packet_parse = packet_parse
@@ -509,6 +526,15 @@ class Connection:
         if self._auth_task is not None and not self._auth_task.done():
             self._auth_task.cancel()
 
+        if self._accountless_reconnect_pending:
+            self._accountless_reconnect_pending = False
+            if self._reconnect_task is None:
+                self._reconnect_task = self._add_task(
+                    self._reconnect_after_accountless_bind()
+                )
+                self._reconnect_task.add_done_callback(self._reconnect_done)
+            return
+
         if not self._retry_on_disconnect:
             if self._reconnect_task:
                 self._reconnect_task.cancel()
@@ -526,13 +552,19 @@ class Connection:
         loop = asyncio.get_running_loop()
         self._reconnect_task = self._add_task(self.reconnect(), loop)
 
-        def _reconnect_done(task: asyncio.Task[None]):
-            self._reconnect_task = None
-            with contextlib.suppress(asyncio.CancelledError):
-                if exc := task.exception():
-                    raise exc
+        self._reconnect_task.add_done_callback(self._reconnect_done)
 
-        self._reconnect_task.add_done_callback(_reconnect_done)
+    def _reconnect_done(self, task: asyncio.Task[None]) -> None:
+        self._reconnect_task = None
+        with contextlib.suppress(asyncio.CancelledError):
+            if exc := task.exception():
+                raise exc
+
+    async def _reconnect_after_accountless_bind(self) -> None:
+        """Reconnect immediately so a local bind is confirmed by check-auth."""
+        await asyncio.sleep(0.25)
+        self._set_state(ConnectionState.RECONNECTING)
+        await self.connect()
 
     async def reconnect(self) -> None:
         # Wait before reconnect
@@ -829,10 +861,13 @@ class Connection:
             "serial number",
         )
 
-        # Building payload for auth
-        md5_data = hashlib.md5((self._user_id + self._dev_sn).encode("ASCII")).digest()
-        # We need upper case in MD5 data here
-        payload = ("".join(f"{c:02X}" for c in md5_data)).encode("ASCII")
+        payload = derive_auth_key(
+            "" if self._accountless else self._user_id,
+            self._dev_sn,
+            uppercase=(
+                self._accountless_key_case == "upper" if self._accountless else True
+            ),
+        )
 
         # Forming packet - use detected protocol version (V2 or V3)
         packet = Packet(
@@ -849,10 +884,46 @@ class Connection:
         # The auth reply (and everything after) arrives through `_on_notification`
         await self.send_packet(packet)
 
-    async def _check_auth(self, packet: Packet):
+    async def _check_auth(self, packet: Packet) -> bool:
         exc = AuthErrors.from_payload(packet.payload)
         if not exc:
-            return
+            return True
+
+        if (
+            exc is AuthErrors.NeedBindInstallFirst
+            and self._accountless
+            and not self._accountless_bind_attempted
+        ):
+            self._accountless_bind_attempted = True
+            self._accountless_reconnect_pending = True
+            self._set_state(ConnectionState.ACCOUNTLESS_BINDING)
+            bind_packet = Packet(
+                0x21,
+                self._auth_header_dst,
+                0x35,
+                0x85,
+                derive_auth_key(
+                    "",
+                    self._dev_sn,
+                    uppercase=self._accountless_key_case == "upper",
+                ),
+                0x01,
+                0x01,
+                self._packet_version,
+            )
+            self._logger.warning(
+                "Device requested first local bind; writing the accountless key and "
+                "reconnecting to verify it"
+            )
+            client = self._client
+            await self.send_packet(
+                bind_packet, wait_for_response=False, raise_on_failure=True
+            )
+            await self._disconnect_client()
+            if self._client is client:
+                self.disconnected()
+            return False
+
         exc = exc(f"Authentication failed with response: {packet.payload.hex()}")
 
         self._logger.error("Authentication failed, packet: %s", packet, exc_info=exc)
@@ -1156,7 +1227,8 @@ class Connection:
             authenticating = self._state == ConnectionState.AUTHENTICATING
 
             if is_auth_reply and authenticating:
-                await self._check_auth(packet)
+                if not await self._check_auth(packet):
+                    return
                 self._connection_attempt = 0
                 self._reconnect_attempt = 0
                 processed = True
@@ -1164,7 +1236,7 @@ class Connection:
                 self._set_state(ConnectionState.AUTHENTICATED)
                 self._connected.set()
             else:
-                if authenticating and not is_auth_reply:
+                if authenticating and not is_auth_reply and not self._accountless:
                     self._connection_attempt = 0
                     self._reconnect_attempt = 0
                     self._logger.info("Auth completed - first data packet received")

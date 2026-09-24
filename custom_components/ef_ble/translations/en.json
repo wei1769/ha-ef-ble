@@ -12,6 +12,8 @@
       "unknown": "An unexpected error occured, check the logs for details",
       "email_empty": "Email cannot be empty",
       "password_empty": "Password cannot be empty",
+      "accountless_with_credentials": "Leave EcoFlow login empty when accountless mode is enabled",
+      "accountless_with_user_id": "Leave the EcoFlow User ID empty when accountless mode is enabled",
       "device_auth_failed": "Device authentication failed - {reason_failed}",
       "auth_failed_need_refresh_token": "Authentication failed - Token needs to be refreshed, try again",
       "auth_failed_device_internal_error": "Authentication failed - Device internal error",
@@ -31,11 +33,15 @@
       "bluetooth_confirm": {
         "title": "Discovered Device Configuration",
         "data": {
+          "accountless": "Use accountless local authentication",
+          "accountless_key_case": "Accountless key case",
           "user_id": "EcoFlow User ID",
           "address": "BLE Device",
           "update_period": "Update Period"
         },
         "data_description": {
+          "accountless": "Opt in to local authentication without an EcoFlow account. On an unbound device this writes a local key and changes its authentication state. It never unbinds, resets, or overwrites an already-bound device.",
+          "accountless_key_case": "Case of the 32-character MD5 key sent to the device. Lowercase is verified for RIVER 3 Plus; select uppercase only if required by another model.",
           "update_period": "Number of seconds to wait before processing the next device update. Value of 0 means all updates are processed immediately (will result in a high number of database writes)."
         },
         "sections": {
@@ -94,11 +100,15 @@
       "device_confirm": {
         "title": "{name} config options",
         "data": {
+          "accountless": "Use accountless local authentication",
+          "accountless_key_case": "Accountless key case",
           "user_id": "EcoFlow User ID",
           "address": "BLE Device",
           "update_period": "Update Period"
         },
         "data_description": {
+          "accountless": "Opt in to local authentication without an EcoFlow account. On an unbound device this writes a local key and changes its authentication state. It never unbinds, resets, or overwrites an already-bound device.",
+          "accountless_key_case": "Case of the 32-character MD5 key sent to the device. Lowercase is verified for RIVER 3 Plus; select uppercase only if required by another model.",
           "update_period": "Number of seconds to wait before processing the next device update. Value of 0 means all updates are processed immediately (will result in a high number of DB writes)."
         },
         "sections": {
@@ -151,11 +161,15 @@
         "title": "{name} config options",
         "description": "This device is currently unsupported but can be connected to for the purpose of gathering raw data. Refer to [this wiki]({wiki_link}) page for additional information.",
         "data": {
+          "accountless": "Use accountless local authentication",
+          "accountless_key_case": "Accountless key case",
           "user_id": "EcoFlow User ID",
           "update_period": "Update Period",
           "packet_version": "Packet Version"
         },
         "data_description": {
+          "accountless": "Opt in to local authentication without an EcoFlow account. On an unbound device this writes a local key and changes its authentication state. It never unbinds, resets, or overwrites an already-bound device.",
+          "accountless_key_case": "Case of the 32-character MD5 key sent to the device. Lowercase is verified for RIVER 3 Plus; select uppercase only if required by another model.",
           "update_period": "Number of seconds to wait before processing the next device update. A default value of 0 means all updates are processed immediately (may result in a high number of DB writes).",
           "packet_version": "Version of packets to use - depends on the generation and firmware of this device. Try different version if connection/authentication fails.\nNote that some devices may use packet version that is not yet supported by this integration."
         },
@@ -207,6 +221,8 @@
       },
       "reconfigure": {
         "data": {
+          "accountless": "Use accountless local authentication",
+          "accountless_key_case": "Accountless key case",
           "user_id": "EcoFlow User ID",
           "extra_battery": "Enabled Extra Batteries"
         }
@@ -1270,6 +1286,12 @@
     "preferred_proxy": {
       "options": {
         "any": "Any available proxy"
+      }
+    },
+    "accountless_key_case": {
+      "options": {
+        "lower": "Lowercase",
+        "upper": "Uppercase"
       }
     }
   }
