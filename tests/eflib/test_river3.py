@@ -223,3 +223,14 @@ async def test_river3_exact_values_from_known_packets(device, packet_sequence):
         assert actual_value == expected_value, (
             f"{field_name}: expected {expected_value}, got {actual_value}"
         )
+
+
+async def test_river3_updates_new_fields(device, packet_sequence):
+    for hex_packet in packet_sequence:
+        packet = await device.packet_parse(bytes.fromhex(hex_packet))
+        await device.data_parse(packet)
+
+    assert device.get_value(Device.battery_health) == 100
+    assert device.get_value(Device.x_boost) is False
+    assert device.get_value(Device.beeper) is True
+    assert device.get_value(Device.power_off_memory) is True

@@ -93,6 +93,12 @@ class Device(DeviceBase, ProtobufProps):
 
     cell_temperature = pb_field(pb.bms_max_cell_temp)
 
+    battery_health = pb_field(pb.cms_batt_soh)
+
+    x_boost = pb_field(pb.xboost_en)
+    beeper = pb_field(pb.en_beep)
+    power_off_memory = pb_field(pb.output_power_off_memory)
+
     dc_12v_port = pb_field(pb.flow_info_12v, flow_is_on)
     ac_ports = pb_field(pb.flow_info_ac_out, flow_is_on)
 
@@ -228,6 +234,20 @@ class Device(DeviceBase, ProtobufProps):
     @controls.switch(ac_ports, enabled=False)
     async def enable_ac_ports(self, enabled: bool):
         await self._send_config_packet(pr705_pb2.ConfigWrite(cfg_ac_out_open=enabled))
+
+    @controls.switch(x_boost)
+    async def enable_x_boost(self, enabled: bool):
+        await self._send_config_packet(pr705_pb2.ConfigWrite(cfg_xboost_en=enabled))
+
+    @controls.switch(beeper)
+    async def enable_beeper(self, enabled: bool):
+        await self._send_config_packet(pr705_pb2.ConfigWrite(cfg_beep_en=enabled))
+
+    @controls.switch(power_off_memory, enabled=False)
+    async def enable_power_off_memory(self, enabled: bool):
+        await self._send_config_packet(
+            pr705_pb2.ConfigWrite(cfg_output_power_off_memory=enabled)
+        )
 
     @controls.battery(
         battery_charge_limit_min,
