@@ -326,6 +326,17 @@ def percentage(
     )
 
 
+def diagnostic_value(
+    key: str = "", enabled: bool = False, **kwargs: Unpack[_SensorKwargs]
+) -> EcoflowSensorEntityDescription:
+    return EcoflowSensorEntityDescription(
+        key=key,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=enabled,
+        **kwargs,
+    )
+
+
 def enum(
     key: str = "",
     enabled: bool = True,
@@ -495,6 +506,9 @@ _SENSORS: Final[dict[str, SensorEntityDescription]] = {
     "battery_level": battery(),
     "battery_level_main": battery(),
     "battery_health": percentage(entity_category=EntityCategory.DIAGNOSTIC),
+    "charge_discharge_state": diagnostic_value(),
+    "bms_run_state": diagnostic_value(),
+    "sleep_state": diagnostic_value(),
     "input_power": power(precision=0),
     "output_power": power(precision=0),
     "remaining_time_charging": duration(enabled=False),

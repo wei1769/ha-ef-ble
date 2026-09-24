@@ -99,6 +99,13 @@ class Device(DeviceBase, ProtobufProps):
     beeper = pb_field(pb.en_beep)
     power_off_memory = pb_field(pb.output_power_off_memory)
 
+    charge_discharge_state = pb_field(pb.cms_chg_dsg_state)
+    bms_run_state = pb_field(pb.cms_bms_run_state)
+    sleep_state = pb_field(pb.dev_sleep_state)
+
+    unit_standby_time = pb_field(pb.dev_standby_time)
+    ac_standby_time = pb_field(pb.ac_standby_time)
+
     dc_12v_port = pb_field(pb.flow_info_12v, flow_is_on)
     ac_ports = pb_field(pb.flow_info_ac_out, flow_is_on)
 
@@ -248,6 +255,20 @@ class Device(DeviceBase, ProtobufProps):
         await self._send_config_packet(
             pr705_pb2.ConfigWrite(cfg_output_power_off_memory=enabled)
         )
+
+    @controls.duration(unit_standby_time, min=0, max=1440)
+    async def set_unit_standby_time(self, value: float):
+        await self._send_config_packet(
+            pr705_pb2.ConfigWrite(cfg_dev_standby_time=int(value))
+        )
+        return True
+
+    @controls.duration(ac_standby_time, min=0, max=1440)
+    async def set_ac_standby_time(self, value: float):
+        await self._send_config_packet(
+            pr705_pb2.ConfigWrite(cfg_ac_standby_time=int(value))
+        )
+        return True
 
     @controls.battery(
         battery_charge_limit_min,
