@@ -741,11 +741,12 @@ Click on any device below to see available sensors, switches, and controls:
 
 ### Method 1: HACS Installation (Recommended)
 
-This integration is available in the default HACS repository.
+This accountless fork must be installed as a custom HACS repository. The default HACS
+listing installs the upstream project, which does not include accountless authentication.
 
 **Quick Install:** Click the badge below to open this repository directly in HACS:
 
-[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=rabits&repository=ha-ef-ble&category=integration)
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=wei1769&repository=ha-ef-ble&category=integration)
 
 **Manual steps:**
 
@@ -753,7 +754,7 @@ This integration is available in the default HACS repository.
 2. Go to **Integrations**
 3. Click the **⋮** menu (three dots) in the top right
 4. Select **Custom repositories**
-5. Add this repository URL: `https://github.com/rabits/ha-ef-ble`
+5. Add this repository URL: `https://github.com/wei1769/ha-ef-ble`
 6. Select category: **Integration**
 7. Click **Add**
 8. Search for **"EcoFlow BLE"** in HACS
@@ -762,8 +763,7 @@ This integration is available in the default HACS repository.
 
 ### Method 2: Manual Installation
 
-1. Download the latest release from
-   [GitHub Releases](https://github.com/rabits/ha-ef-ble/releases)
+1. Download the [current accountless fork](https://github.com/wei1769/ha-ef-ble/archive/refs/heads/main.zip)
 2. Extract the `custom_components/ef_ble` folder
 3. Copy it to your Home Assistant `config/custom_components/` directory
 4. Restart Home Assistant
@@ -782,8 +782,7 @@ only succeeds after check-auth confirms it.
 > [!WARNING]
 > Accountless first bind changes the device's authentication state. It is opt-in and will
 > not unbind, factory-reset, or overwrite a device that reports it is already bound. The
-> lowercase key format is verified on RIVER 3 Plus; an uppercase option is available for
-> devices that require the upstream key representation.
+> accountless key is the lowercase ASCII representation of `MD5(serial)`.
 
 > [!TIP]
 > For detailed configuration help, FAQ, and troubleshooting common issues (like BLE

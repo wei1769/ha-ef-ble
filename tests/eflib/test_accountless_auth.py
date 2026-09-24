@@ -21,7 +21,7 @@ async def _packet_parse(data: bytes) -> Packet:
     return Packet.from_bytes(data)
 
 
-def _connection(*, accountless: bool = True, key_case: str = "lower") -> Connection:
+def _connection(*, accountless: bool = True) -> Connection:
     ble_device = Mock(address="AA:BB:CC:DD:EE:FF")
     return Connection(
         ble_device,
@@ -30,7 +30,6 @@ def _connection(*, accountless: bool = True, key_case: str = "lower") -> Connect
         _data_parse,
         _packet_parse,
         accountless=accountless,
-        accountless_key_case=key_case,
     )
 
 
@@ -44,17 +43,16 @@ def test_derive_accountless_key_in_both_supported_cases() -> None:
 
 
 @pytest.mark.parametrize(
-    ("accountless", "key_case", "expected"),
+    ("accountless", "expected"),
     [
-        (True, "lower", b"b17975c56fcd2aac6b4a453907d5fc76"),
-        (True, "upper", b"B17975C56FCD2AAC6B4A453907D5FC76"),
-        (False, "lower", derive_auth_key("1234", SERIAL, uppercase=True)),
+        (True, b"b17975c56fcd2aac6b4a453907d5fc76"),
+        (False, derive_auth_key("1234", SERIAL, uppercase=True)),
     ],
 )
 async def test_check_auth_key_source_and_case(
-    accountless: bool, key_case: str, expected: bytes
+    accountless: bool, expected: bytes
 ) -> None:
-    connection = _connection(accountless=accountless, key_case=key_case)
+    connection = _connection(accountless=accountless)
     connection.send_packet = AsyncMock()
 
     await connection._auto_authentication()

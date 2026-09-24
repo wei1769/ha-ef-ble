@@ -38,7 +38,6 @@ from homeassistant.helpers.storage import Store
 from . import eflib
 from .const import (
     CONF_ACCOUNTLESS,
-    CONF_ACCOUNTLESS_KEY_CASE,
     CONF_ADVANCED_CONNECTION_OPTIONS,
     CONF_BLUEZ_START_NOTIFY,
     CONF_COLLECT_PACKETS,
@@ -147,7 +146,6 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
 
         self._user_id: str = ""
         self._accountless: bool = False
-        self._accountless_key_case: str = "lower"
         self._email: str = ""
         self._user_id_validated: bool = False
         self._log_options = LogOptions.no_options()
@@ -211,7 +209,7 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
             data_schema=(
                 schema_builder()
-                .accountless(self._accountless, self._accountless_key_case)
+                .accountless(self._accountless)
                 .user_id(self._user_id)
                 .login(self._collapsed)
                 .required(CONF_ADDRESS, vol.In([full_name]))
@@ -312,7 +310,7 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders=placeholders,
             data_schema=(
                 schema_builder()
-                .accountless(self._accountless, self._accountless_key_case)
+                .accountless(self._accountless)
                 .user_id(self._user_id)
                 .login(self._collapsed)
                 .update_period()
@@ -346,7 +344,7 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders=placeholders,
             data_schema=(
                 schema_builder()
-                .accountless(self._accountless, self._accountless_key_case)
+                .accountless(self._accountless)
                 .user_id(self._user_id)
                 .optional(
                     CONF_PACKET_VERSION,
@@ -401,10 +399,7 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reconfigure",
             data_schema=(
                 schema_builder()
-                .accountless(
-                    reconfigure_entry.data.get(CONF_ACCOUNTLESS, False),
-                    reconfigure_entry.data.get(CONF_ACCOUNTLESS_KEY_CASE, "lower"),
-                )
+                .accountless(reconfigure_entry.data.get(CONF_ACCOUNTLESS, False))
                 .user_id(reconfigure_entry.data.get(CONF_USER_ID, ""))
                 .extra_battery(reconfigure_entry.data.get(CONF_EXTRA_BATTERY), device)
                 .build()
@@ -477,7 +472,6 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
         region = user_input.get("login", {}).get(CONF_REGION, "")
         user_id = user_input.get(CONF_USER_ID, "").strip()
         self._accountless = user_input.get(CONF_ACCOUNTLESS, False)
-        self._accountless_key_case = user_input.get(CONF_ACCOUNTLESS_KEY_CASE, "lower")
         advanced = user_input.get(CONF_ADVANCED_CONNECTION_OPTIONS, {})
         timeout = advanced.get(CONF_CONNECTION_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT)
         packet_version = PacketVersion.from_str(user_input.get(CONF_PACKET_VERSION))
@@ -701,7 +695,6 @@ class EFBLEConfigFlow(ConfigFlow, domain=DOMAIN):
         await device.connect(
             self._user_id,
             accountless=self._accountless,
-            accountless_key_case=self._accountless_key_case,
         )
         exc = None
         try:
@@ -912,21 +905,8 @@ class _SchemaBuilder:
 
         return self.update({marker(CONF_USER_ID, default=user_id): str})
 
-    def accountless(self, enabled: bool = False, key_case: str = "lower"):
-        return self.update(
-            {
-                vol.Optional(CONF_ACCOUNTLESS, default=enabled): bool,
-                vol.Optional(
-                    CONF_ACCOUNTLESS_KEY_CASE, default=key_case
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        options=["lower", "upper"],
-                        mode=SelectSelectorMode.DROPDOWN,
-                        translation_key=CONF_ACCOUNTLESS_KEY_CASE,
-                    )
-                ),
-            }
-        )
+    def accountless(self, enabled: bool = False):
+        return self.update({vol.Optional(CONF_ACCOUNTLESS, default=enabled): bool})
 
     def login(self, collapsed: bool = True):
         return self.update(

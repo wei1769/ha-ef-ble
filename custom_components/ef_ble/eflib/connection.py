@@ -248,14 +248,12 @@ class Connection:
         encrypt_type: int = 7,
         auth_header_dst: int = 0x35,
         accountless: bool = False,
-        accountless_key_case: Literal["lower", "upper"] = "lower",
     ) -> None:
         self._ble_dev = ble_dev
         self._address = ble_dev.address
         self._dev_sn = dev_sn
         self._user_id = user_id
         self._accountless = accountless
-        self._accountless_key_case = accountless_key_case
         self._accountless_bind_attempted = False
         self._accountless_reconnect_pending = False
 
@@ -864,9 +862,7 @@ class Connection:
         payload = derive_auth_key(
             "" if self._accountless else self._user_id,
             self._dev_sn,
-            uppercase=(
-                self._accountless_key_case == "upper" if self._accountless else True
-            ),
+            uppercase=not self._accountless,
         )
 
         # Forming packet - use detected protocol version (V2 or V3)
@@ -905,7 +901,7 @@ class Connection:
                 derive_auth_key(
                     "",
                     self._dev_sn,
-                    uppercase=self._accountless_key_case == "upper",
+                    uppercase=False,
                 ),
                 0x01,
                 0x01,

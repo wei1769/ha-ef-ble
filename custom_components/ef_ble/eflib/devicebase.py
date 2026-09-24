@@ -344,7 +344,6 @@ class DeviceBase(abc.ABC):
         max_attempts: int | None = None,
         *,
         accountless: bool = False,
-        accountless_key_case: Literal["lower", "upper"] = "lower",
     ):
         if self._conn is None:
             self._conn = (
@@ -358,7 +357,6 @@ class DeviceBase(abc.ABC):
                     encrypt_type=self.scan_record.encrypt_type,
                     auth_header_dst=self.auth_header_dst,
                     accountless=accountless,
-                    accountless_key_case=accountless_key_case,
                 )
                 .with_logging_options(self._logger.options)
                 .with_disabled_reconnect(self._reconnect_disabled)
@@ -381,7 +379,6 @@ class DeviceBase(abc.ABC):
             self._conn._user_id = user_id
 
         self._conn._accountless = accountless
-        self._conn._accountless_key_case = accountless_key_case
 
         await self._conn.connect(max_attempts=max_attempts)
 

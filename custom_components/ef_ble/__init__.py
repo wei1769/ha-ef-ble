@@ -27,7 +27,6 @@ from . import eflib
 from .config_flow import CONF_COLLECT_PACKETS, ConfLogOptions, LogOptions, PacketVersion
 from .const import (
     CONF_ACCOUNTLESS,
-    CONF_ACCOUNTLESS_KEY_CASE,
     CONF_ADVANCED_CONNECTION_OPTIONS,
     CONF_BLUEZ_START_NOTIFY,
     CONF_COLLECT_PACKETS_AMOUNT,
@@ -87,7 +86,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: DeviceConfigEntry) -> bo
     address = entry.data.get(CONF_ADDRESS)
     user_id = entry.data.get(CONF_USER_ID)
     accountless = entry.data.get(CONF_ACCOUNTLESS, False)
-    accountless_key_case = entry.data.get(CONF_ACCOUNTLESS_KEY_CASE, "lower")
     merged_options = entry.data | entry.options
     update_period = merged_options.get(CONF_UPDATE_PERIOD, DEFAULT_UPDATE_PERIOD)
     packet_version = PacketVersion.from_str(
@@ -166,7 +164,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: DeviceConfigEntry) -> bo
                     user_id=user_id,
                     max_attempts=0 if eflib.is_solar_only(device) else None,
                     accountless=accountless,
-                    accountless_key_case=accountless_key_case,
                 )
             )
         async with asyncio.timeout(timeout):
