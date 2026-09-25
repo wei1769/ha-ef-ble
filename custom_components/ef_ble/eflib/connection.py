@@ -256,6 +256,7 @@ class Connection:
         self._accountless = accountless
         self._accountless_bind_attempted = False
         self._accountless_reconnect_pending = False
+        self._gatt_cache_recovery_attempted = False
 
         self._data_parse = data_parse
         self._packet_parse = packet_parse
@@ -443,13 +444,33 @@ class Connection:
                 timeout=self._options.timeout,
             )
             self._validate_characteristics()
+            self._gatt_cache_recovery_attempted = False
         except UnsupportedBluetoothProtocol as e:
-            error = e
-            if not e.available_characteristics:
+            if (
+                not e.available_characteristics
+                and not self._gatt_cache_recovery_attempted
+            ):
                 # An empty service table is a host-side GATT cache glitch, not the
-                # device genuinely lacking the protocol - wipe the cache so the
-                # reconnect re-discovers services instead of failing the same way.
+                # device genuinely lacking the protocol. Recover once in this setup
+                # attempt rather than reporting an auth failure before auth started.
+                self._gatt_cache_recovery_attempted = True
+                self._logger.warning(
+                    "GATT service table is empty; clearing the cache and reconnecting"
+                )
                 await self._clear_gatt_cache()
+                client = self._client
+                await self._disconnect_client()
+                if self._client is client:
+                    self._client = None
+                self._set_state(
+                    ConnectionState.RECONNECTING,
+                    reason="retry after clearing empty GATT cache",
+                )
+                await asyncio.sleep(0.25)
+                await self.connect(max_attempts=max_attempts)
+                return
+
+            error = e
             self._set_state(ConnectionState.ERROR_BLEAK, e)
         except TimeoutError as e:
             error = e

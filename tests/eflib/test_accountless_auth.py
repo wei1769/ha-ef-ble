@@ -7,7 +7,10 @@ from custom_components.ef_ble.eflib.connection import (
     ConnectionState,
     derive_auth_key,
 )
-from custom_components.ef_ble.eflib.exceptions import AuthErrors
+from custom_components.ef_ble.eflib.exceptions import (
+    AuthErrors,
+    UnsupportedBluetoothProtocol,
+)
 from custom_components.ef_ble.eflib.packet import Packet
 
 SERIAL = "R631TEST1234"
@@ -114,6 +117,37 @@ async def test_accountless_bind_disconnect_schedules_immediate_reconnect() -> No
 
     connection._reconnect_after_accountless_bind.assert_awaited_once_with()
     assert connection._state is not ConnectionState.DISCONNECTED
+
+
+async def test_empty_gatt_cache_is_cleared_and_retried_once(mocker) -> None:
+    connection = _connection()
+    clients = [Mock(is_connected=True), Mock(is_connected=True)]
+    establish = mocker.patch(
+        "custom_components.ef_ble.eflib.connection.establish_connection",
+        new=AsyncMock(side_effect=clients),
+    )
+    mocker.patch(
+        "custom_components.ef_ble.eflib.connection.close_stale_connections_by_address",
+        new=AsyncMock(),
+    )
+    mocker.patch(
+        "custom_components.ef_ble.eflib.connection.asyncio.sleep", new=AsyncMock()
+    )
+    connection._validate_characteristics = Mock(
+        side_effect=[UnsupportedBluetoothProtocol("notify", []), None]
+    )
+    connection._clear_gatt_cache = AsyncMock()
+    connection._disconnect_client = AsyncMock()
+    connection._start_notify = AsyncMock()
+    connection._run_auth = AsyncMock()
+
+    await connection.connect(max_attempts=3)
+    await connection._auth_task
+
+    assert establish.await_count == 2
+    connection._clear_gatt_cache.assert_awaited_once_with()
+    assert connection._state is ConnectionState.CONNECTED
+    assert connection._gatt_cache_recovery_attempted is False
 
 
 @pytest.mark.parametrize(
