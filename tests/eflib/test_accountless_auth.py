@@ -145,9 +145,23 @@ async def test_empty_gatt_cache_is_cleared_and_retried_once(mocker) -> None:
     await connection._auth_task
 
     assert establish.await_count == 2
+    assert establish.await_args_list[0].kwargs["use_services_cache"] is True
+    assert establish.await_args_list[1].kwargs["use_services_cache"] is False
     connection._clear_gatt_cache.assert_awaited_once_with()
     assert connection._state is ConnectionState.CONNECTED
     assert connection._gatt_cache_recovery_attempted is False
+
+
+async def test_gatt_cache_clear_uses_retry_connector(mocker) -> None:
+    connection = _connection()
+    clear_cache = mocker.patch(
+        "custom_components.ef_ble.eflib.connection.clear_cache",
+        new=AsyncMock(return_value=True),
+    )
+
+    await connection._clear_gatt_cache()
+
+    clear_cache.assert_awaited_once_with(connection._address)
 
 
 @pytest.mark.parametrize(

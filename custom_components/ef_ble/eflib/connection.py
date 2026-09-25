@@ -21,6 +21,7 @@ from bleak.exc import BleakError
 from bleak_retry_connector import (
     MAX_CONNECT_ATTEMPTS,
     BleakNotFoundError,
+    clear_cache,
     close_stale_connections_by_address,
     establish_connection,
 )
@@ -442,6 +443,7 @@ class Connection:
                 ble_device_callback=self.ble_dev,
                 max_attempts=ble_attempts,
                 timeout=self._options.timeout,
+                use_services_cache=not self._gatt_cache_recovery_attempted,
             )
             self._validate_characteristics()
             self._gatt_cache_recovery_attempted = False
@@ -971,17 +973,17 @@ class Connection:
     async def _clear_gatt_cache(self) -> None:
         # BlueZ can report `ServicesResolved` against an empty or stale cache (typically
         # right after a bluetoothd restart or host update); without wiping it every
-        # reconnect keeps resolving the same broken service table. `clear_cache` is the
-        # `bleak_retry_connector.BleakClientWithServiceCache` interface, duck-typed via
-        # `getattr` because not every client implements it (plain `BleakClient` doesn't)
-        clear_cache = getattr(self._client, "clear_cache", None)
-        if clear_cache is None:
-            return
+        # reconnect keeps resolving the same broken service table.
         self._logger.warning("Clearing GATT cache to force service re-discovery")
         try:
-            await clear_cache()
+            cleared = await clear_cache(self._address)
         except BleakError as e:
             self._logger.warning("Failed to clear GATT cache: %s", e)
+            return
+        if not cleared:
+            self._logger.warning(
+                "No GATT cache entry was removed; forcing uncached service discovery"
+            )
 
     async def _gen_session_key(self, seed: bytes, srand: bytes):
         """Implements the necessary part of the logic, rest is skipped"""
