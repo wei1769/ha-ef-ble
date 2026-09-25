@@ -1030,6 +1030,9 @@
       },
       "ac_c20_in_type": {
         "name": "AC C20 In Type"
+      },
+      "battery_health": {
+        "name": "Battery Health"
       }
     },
     "select": {
@@ -1266,6 +1269,15 @@
       },
       "feed_protect": {
         "name": "Feed-in Control"
+      },
+      "x_boost": {
+        "name": "X-Boost"
+      },
+      "beeper": {
+        "name": "Beeper"
+      },
+      "power_off_memory": {
+        "name": "Power-Off Memory"
       }
     }
   },
