@@ -119,9 +119,13 @@ async def test_accountless_bind_disconnect_schedules_immediate_reconnect() -> No
     assert connection._state is not ConnectionState.DISCONNECTED
 
 
-async def test_empty_gatt_cache_is_cleared_and_retried_once(mocker) -> None:
+async def test_empty_gatt_cache_is_cleared_and_retried_once(mocker, caplog) -> None:
     connection = _connection()
-    clients = [Mock(is_connected=True), Mock(is_connected=True)]
+    services = Mock(services={}, characteristics={})
+    clients = [
+        Mock(is_connected=True, services=services),
+        Mock(is_connected=True, services=services),
+    ]
     establish = mocker.patch(
         "custom_components.ef_ble.eflib.connection.establish_connection",
         new=AsyncMock(side_effect=clients),
@@ -150,6 +154,8 @@ async def test_empty_gatt_cache_is_cleared_and_retried_once(mocker) -> None:
     connection._clear_gatt_cache.assert_awaited_once_with()
     assert connection._state is ConnectionState.CONNECTED
     assert connection._gatt_cache_recovery_attempted is False
+    assert "GATT discovery snapshot" in caplog.text
+    assert "services=0 characteristics=0" in caplog.text
 
 
 async def test_gatt_cache_clear_uses_retry_connector(mocker) -> None:

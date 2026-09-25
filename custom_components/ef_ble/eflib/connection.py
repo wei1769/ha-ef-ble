@@ -448,6 +448,9 @@ class Connection:
             self._validate_characteristics()
             self._gatt_cache_recovery_attempted = False
         except UnsupportedBluetoothProtocol as e:
+            self._log_gatt_discovery_failure(
+                use_services_cache=not self._gatt_cache_recovery_attempted
+            )
             if (
                 not e.available_characteristics
                 and not self._gatt_cache_recovery_attempted
@@ -980,10 +983,39 @@ class Connection:
         except BleakError as e:
             self._logger.warning("Failed to clear GATT cache: %s", e)
             return
+        self._logger.warning("GATT cache clear result: removed=%s", cleared)
         if not cleared:
             self._logger.warning(
                 "No GATT cache entry was removed; forcing uncached service discovery"
             )
+
+    def _log_gatt_discovery_failure(self, *, use_services_cache: bool) -> None:
+        """Log enough backend state to diagnose discovery without packet secrets."""
+        assert self._client is not None
+        services = self._client.services
+        service_uuids = sorted(service.uuid for service in services.services.values())
+        characteristic_uuids = sorted(
+            characteristic.uuid for characteristic in services.characteristics.values()
+        )
+        backend = getattr(self._client, "_backend", None)
+        self._logger.warning(
+            "GATT discovery snapshot: connection_attempt=%d cache_enabled=%s "
+            "client=%s backend=%s connected=%s services=%d characteristics=%d "
+            "service_uuids=%s characteristic_uuids=%s",
+            self._connection_attempt,
+            use_services_cache,
+            f"{type(self._client).__module__}.{type(self._client).__qualname__}",
+            (
+                f"{type(backend).__module__}.{type(backend).__qualname__}"
+                if backend is not None
+                else "unavailable"
+            ),
+            self._client.is_connected,
+            len(service_uuids),
+            len(characteristic_uuids),
+            service_uuids,
+            characteristic_uuids,
+        )
 
     async def _gen_session_key(self, seed: bytes, srand: bytes):
         """Implements the necessary part of the logic, rest is skipped"""
