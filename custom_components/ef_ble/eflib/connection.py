@@ -259,7 +259,10 @@ class Connection:
         self._accountless_bind_attempted = False
         self._accountless_reconnect_pending = False
         self._gatt_cache_recovery_attempted = False
-        self._prefer_plain_bleak_client = False
+        # HA's wrapper loads controller connection parameters before discovery. R631's
+        # GATT table stays empty on that path, while the same device works through the
+        # preserved plain Bleak client with the discovered BLEDevice.
+        self._prefer_plain_bleak_client = accountless and dev_sn.startswith("R631")
 
         self._data_parse = data_parse
         self._packet_parse = packet_parse

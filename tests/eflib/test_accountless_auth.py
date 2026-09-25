@@ -177,6 +177,7 @@ async def test_gatt_cache_clear_uses_retry_connector(mocker) -> None:
 
 async def test_empty_gatt_table_falls_back_from_ha_wrapper(mocker) -> None:
     connection = _connection()
+    connection._prefer_plain_bleak_client = False
     services = Mock(services={}, characteristics={})
     ha_client_type = type("HaBleakClientWrapper", (), {})
     ha_client_type.__module__ = "habluetooth.wrappers"
@@ -218,6 +219,12 @@ async def test_empty_gatt_table_falls_back_from_ha_wrapper(mocker) -> None:
     assert wait_for_disconnect.await_count == 3
     assert connection._prefer_plain_bleak_client is True
     assert connection._state is ConnectionState.CONNECTED
+
+
+def test_r631_accountless_prefers_plain_bleak_client() -> None:
+    connection = _connection()
+
+    assert connection._prefer_plain_bleak_client is True
 
 
 @pytest.mark.parametrize(
