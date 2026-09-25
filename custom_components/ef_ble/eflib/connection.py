@@ -457,6 +457,7 @@ class Connection:
             self._validate_characteristics()
             self._gatt_cache_recovery_attempted = False
         except UnsupportedBluetoothProtocol as e:
+            await self._log_delayed_bluez_gatt_state()
             self._log_gatt_discovery_failure(
                 use_services_cache=not self._gatt_cache_recovery_attempted
             )
@@ -1045,6 +1046,48 @@ class Connection:
             service_uuids,
             characteristic_uuids,
         )
+
+    async def _log_delayed_bluez_gatt_state(self) -> None:
+        """Check whether BlueZ exported services after Bleak took its snapshot."""
+        assert self._client is not None
+        backend = getattr(self._client, "_backend", None)
+        device_path = getattr(backend, "_device_path", None)
+        if not device_path:
+            self._logger.warning("Delayed BlueZ GATT diagnostic unavailable")
+            return
+
+        try:
+            from bleak.backends.bluezdbus.manager import (  # noqa: PLC0415
+                get_global_bluez_manager,
+            )
+
+            await asyncio.sleep(1)
+            manager = await get_global_bluez_manager()
+            device_props = manager._properties.get(device_path, {}).get(
+                "org.bluez.Device1", {}
+            )
+            async with asyncio.timeout(2):
+                services = await manager.get_services(
+                    device_path, use_cached=False, requested_services=None
+                )
+            service_uuids = sorted(
+                service.uuid for service in services.services.values()
+            )
+            characteristic_uuids = sorted(
+                characteristic.uuid
+                for characteristic in services.characteristics.values()
+            )
+            self._logger.warning(
+                "Delayed BlueZ GATT snapshot: services_resolved=%s services=%d "
+                "characteristics=%d service_uuids=%s characteristic_uuids=%s",
+                device_props.get("ServicesResolved"),
+                len(service_uuids),
+                len(characteristic_uuids),
+                service_uuids,
+                characteristic_uuids,
+            )
+        except Exception as e:  # noqa: BLE001 - diagnostics must not alter recovery
+            self._logger.warning("Delayed BlueZ GATT diagnostic failed: %s", e)
 
     def _bleak_client_class(self) -> type[BleakClient]:
         """Use HA's preserved plain client only after its wrapper failed discovery."""
