@@ -258,6 +258,7 @@ class Connection:
         self._accountless_bind_attempted = False
         self._accountless_reconnect_pending = False
         self._gatt_cache_recovery_attempted = False
+        self._prefer_plain_bleak_client = False
 
         self._data_parse = data_parse
         self._packet_parse = packet_parse
@@ -435,8 +436,9 @@ class Connection:
             # establish_connection needs a real retry count for BLE-level attempts (e.g.
             # when adapter slots are contested).
             ble_attempts = max_attempts if max_attempts != 0 else MAX_CONNECT_ATTEMPTS
+            client_class = self._bleak_client_class()
             self._client = await establish_connection(
-                BleakClient,
+                client_class,
                 self.ble_dev(),
                 self._ble_dev.name or self._address,
                 disconnected_callback=self.disconnected,
@@ -470,6 +472,28 @@ class Connection:
                 self._set_state(
                     ConnectionState.RECONNECTING,
                     reason="retry after clearing empty GATT cache",
+                )
+                await asyncio.sleep(0.25)
+                await self.connect(max_attempts=max_attempts)
+                return
+
+            if (
+                not e.available_characteristics
+                and not self._prefer_plain_bleak_client
+                and type(self._client).__module__.startswith("habluetooth.")
+            ):
+                self._prefer_plain_bleak_client = True
+                self._logger.warning(
+                    "Home Assistant Bluetooth wrapper returned an empty GATT table "
+                    "after uncached discovery; retrying with the plain Bleak client"
+                )
+                client = self._client
+                await self._disconnect_client()
+                if self._client is client:
+                    self._client = None
+                self._set_state(
+                    ConnectionState.RECONNECTING,
+                    reason="retry empty GATT discovery without HA wrapper",
                 )
                 await asyncio.sleep(0.25)
                 await self.connect(max_attempts=max_attempts)
@@ -1016,6 +1040,16 @@ class Connection:
             service_uuids,
             characteristic_uuids,
         )
+
+    def _bleak_client_class(self) -> type[BleakClient]:
+        """Use HA's preserved plain client only after its wrapper failed discovery."""
+        if not self._prefer_plain_bleak_client:
+            return BleakClient
+        try:
+            from habluetooth.usage import ORIGINAL_BLEAK_CLIENT  # noqa: PLC0415
+        except ImportError:
+            return BleakClient
+        return ORIGINAL_BLEAK_CLIENT
 
     async def _gen_session_key(self, seed: bytes, srand: bytes):
         """Implements the necessary part of the logic, rest is skipped"""

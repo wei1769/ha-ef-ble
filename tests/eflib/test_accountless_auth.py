@@ -170,6 +170,46 @@ async def test_gatt_cache_clear_uses_retry_connector(mocker) -> None:
     clear_cache.assert_awaited_once_with(connection._address)
 
 
+async def test_empty_gatt_table_falls_back_from_ha_wrapper(mocker) -> None:
+    connection = _connection()
+    services = Mock(services={}, characteristics={})
+    ha_client_type = type("HaBleakClientWrapper", (), {})
+    ha_client_type.__module__ = "habluetooth.wrappers"
+    clients = [ha_client_type(), ha_client_type(), Mock()]
+    for client in clients:
+        client.is_connected = True
+        client.services = services
+    establish = mocker.patch(
+        "custom_components.ef_ble.eflib.connection.establish_connection",
+        new=AsyncMock(side_effect=clients),
+    )
+    mocker.patch(
+        "custom_components.ef_ble.eflib.connection.close_stale_connections_by_address",
+        new=AsyncMock(),
+    )
+    mocker.patch(
+        "custom_components.ef_ble.eflib.connection.asyncio.sleep", new=AsyncMock()
+    )
+    connection._validate_characteristics = Mock(
+        side_effect=[
+            UnsupportedBluetoothProtocol("notify", []),
+            UnsupportedBluetoothProtocol("notify", []),
+            None,
+        ]
+    )
+    connection._clear_gatt_cache = AsyncMock()
+    connection._disconnect_client = AsyncMock()
+    connection._start_notify = AsyncMock()
+    connection._run_auth = AsyncMock()
+
+    await connection.connect(max_attempts=3)
+    await connection._auth_task
+
+    assert establish.await_count == 3
+    assert connection._prefer_plain_bleak_client is True
+    assert connection._state is ConnectionState.CONNECTED
+
+
 @pytest.mark.parametrize(
     ("payload", "error"),
     [
