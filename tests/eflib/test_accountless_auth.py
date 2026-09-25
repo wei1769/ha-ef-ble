@@ -134,6 +134,10 @@ async def test_empty_gatt_cache_is_cleared_and_retried_once(mocker, caplog) -> N
         "custom_components.ef_ble.eflib.connection.close_stale_connections_by_address",
         new=AsyncMock(),
     )
+    wait_for_disconnect = mocker.patch(
+        "custom_components.ef_ble.eflib.connection.wait_for_disconnect",
+        new=AsyncMock(),
+    )
     mocker.patch(
         "custom_components.ef_ble.eflib.connection.asyncio.sleep", new=AsyncMock()
     )
@@ -151,6 +155,7 @@ async def test_empty_gatt_cache_is_cleared_and_retried_once(mocker, caplog) -> N
     assert establish.await_count == 2
     assert establish.await_args_list[0].kwargs["use_services_cache"] is True
     assert establish.await_args_list[1].kwargs["use_services_cache"] is False
+    assert wait_for_disconnect.await_count == 2
     connection._clear_gatt_cache.assert_awaited_once_with()
     assert connection._state is ConnectionState.CONNECTED
     assert connection._gatt_cache_recovery_attempted is False
@@ -187,6 +192,10 @@ async def test_empty_gatt_table_falls_back_from_ha_wrapper(mocker) -> None:
         "custom_components.ef_ble.eflib.connection.close_stale_connections_by_address",
         new=AsyncMock(),
     )
+    wait_for_disconnect = mocker.patch(
+        "custom_components.ef_ble.eflib.connection.wait_for_disconnect",
+        new=AsyncMock(),
+    )
     mocker.patch(
         "custom_components.ef_ble.eflib.connection.asyncio.sleep", new=AsyncMock()
     )
@@ -206,6 +215,7 @@ async def test_empty_gatt_table_falls_back_from_ha_wrapper(mocker) -> None:
     await connection._auth_task
 
     assert establish.await_count == 3
+    assert wait_for_disconnect.await_count == 3
     assert connection._prefer_plain_bleak_client is True
     assert connection._state is ConnectionState.CONNECTED
 

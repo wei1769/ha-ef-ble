@@ -24,6 +24,7 @@ from bleak_retry_connector import (
     clear_cache,
     close_stale_connections_by_address,
     establish_connection,
+    wait_for_disconnect,
 )
 
 from . import keydata
@@ -432,6 +433,9 @@ class Connection:
             # left over from a bad disconnect); otherwise new connection attempts can be
             # refused until the adapter is reset.
             await close_stale_connections_by_address(self.ble_dev().address)
+            # BlueZ emits its disconnect asynchronously. Connecting before that property
+            # transition reuses the ghost link and its empty ServicesResolved table.
+            await wait_for_disconnect(self.ble_dev(), 0.5)
             # max_attempts=0 means unlimited at Connection level, but
             # establish_connection needs a real retry count for BLE-level attempts (e.g.
             # when adapter slots are contested).
@@ -473,7 +477,6 @@ class Connection:
                     ConnectionState.RECONNECTING,
                     reason="retry after clearing empty GATT cache",
                 )
-                await asyncio.sleep(0.25)
                 await self.connect(max_attempts=max_attempts)
                 return
 
@@ -495,7 +498,6 @@ class Connection:
                     ConnectionState.RECONNECTING,
                     reason="retry empty GATT discovery without HA wrapper",
                 )
-                await asyncio.sleep(0.25)
                 await self.connect(max_attempts=max_attempts)
                 return
 
